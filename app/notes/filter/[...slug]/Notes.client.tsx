@@ -1,17 +1,16 @@
 'use client';
 
+import Link from 'next/link';
 import { useState } from 'react';
 import { useDebouncedCallback } from 'use-debounce';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 
 import NoteList from '@/components/NoteList/NoteList';
 import Pagination from '@/components/Pagination/Pagination';
-import Modal from '@/components/Modal/Modal';
-import NoteForm from '@/components/NoteForm/NoteForm';
 import SearchBox from '@/components/SearchBox/SearchBox';
+
 import { fetchNotes } from '@/lib/api';
 import type { FetchNotesParams, FetchNotesResponse } from '@/lib/api';
-
 
 import css from './NotesPage.module.css';
 
@@ -21,88 +20,78 @@ interface NotesClientProps {
   initialParams: FetchNotesParams;
 }
 
-const NotesClient = ({ initialParams }: NotesClientProps) => {
-  const [isModalOpen, setIsModalOpen] = useState(false);
+export default function NotesClient({ initialParams }: NotesClientProps) {
+  const [search, setSearch] = useState(initialParams.search ?? '');
+  const [page, setPage] = useState(initialParams.page ?? 1);
 
-  const [params, setParams] = useState<FetchNotesParams>({
-    page: initialParams.page ?? 1,
-    perPage: initialParams.perPage ?? PER_PAGE,
-    search: initialParams.search,
-  });
+  // tag приходит из initialParams (SSR)
+  const tag = initialParams.tag;
 
-  const [searchInput, setSearchInput] = useState(initialParams.search ?? '');
+  const debouncedSearch = useDebouncedCallback((value: string) => {
+    setPage(1);
+    setSearch(value);
+  }, 400);
 
-  const debouncedUpdateSearch = useDebouncedCallback((value: string) => {
-    setParams(prev => ({
-      ...prev,
-      page: 1,
-      search: value.trim() || undefined,
-    }));
-  }, 300);
-
-  const handleSearchChange = (value: string) => {
-    setSearchInput(value);
-    debouncedUpdateSearch(value);
+  const params: FetchNotesParams = {
+    page,
+    perPage: PER_PAGE,
+    search,
+    tag,
   };
 
-  const { data, isLoading, isError } = useQuery<FetchNotesResponse>({
+  const { data, isPending, isError, error, isFetching } = useQuery<
+    FetchNotesResponse,
+    Error
+  >({
     queryKey: ['notes', params],
     queryFn: () => fetchNotes(params),
     placeholderData: keepPreviousData,
-    staleTime: 60_000,
   });
 
-  const notes = data?.notes ?? [];
-  const totalPages = data?.totalPages ?? 0;
-  const shouldShowPagination = totalPages > 1;
-
-  const handlePageChange = (nextPage: number) => {
-    setParams(prev => ({ ...prev, page: nextPage }));
+  const handleSearchChange = (value: string) => {
+    debouncedSearch(value);
   };
 
-  const handleOpenModal = () => setIsModalOpen(true);
-  const handleCloseModal = () => setIsModalOpen(false);
+  const handlePageChange = (newPage: number) => {
+    setPage(newPage);
+  };
+
+  const notes = data?.notes ?? [];
+  const totalPages = data?.totalPages ?? 1;
 
   return (
-    <div className={css.app}>
-      <header className={css.toolbar}>
-        <SearchBox value={searchInput} onChange={handleSearchChange} />
+    <main className={css.main}>
+      <div className={css.container}>
+        <div className={css.headerRow}>
+          <SearchBox value={search} onChange={handleSearchChange} />
 
-        {shouldShowPagination && (
-          <Pagination
-            page={params.page ?? 1}
-            totalPages={totalPages}
-            onPageChange={handlePageChange}
-          />
+
+        
+          <Link href="/notes/action/create" className={css.button}>
+            Create note +
+          </Link>
+        </div>
+
+        {isPending && <p className={css.status}>Loading...</p>}
+
+        {isError && (
+          <p className={css.status}>
+            Error: {error?.message ?? 'Something went wrong'}
+          </p>
         )}
 
-        <button
-          type="button"
-          className={css.button}
-          onClick={handleOpenModal}
-        >
-          Create note +
-        </button>
-      </header>
+        {!isPending && !isError && <NoteList notes={notes} />}
 
-            <main className={css.main}>
-        {isLoading && <p>Loading, please wait...</p>}
-
-        {isError && <p>Something went wrong.</p>}
-
-        {!isLoading && !isError && notes.length > 0 && (
-          <NoteList notes={notes} />
-        )}
-      </main>
+        <Pagination
+  page={page}
+  totalPages={totalPages}
+  onPageChange={handlePageChange}
+/>
 
 
-      {isModalOpen && (
-        <Modal onClose={handleCloseModal}>
-          <NoteForm onCancel={handleCloseModal} />
-        </Modal>
-      )}
-    </div>
+      
+        {isFetching && !isPending && <p className={css.status}>Updating…</p>}
+      </div>
+    </main>
   );
-};
-
-export default NotesClient;
+}
