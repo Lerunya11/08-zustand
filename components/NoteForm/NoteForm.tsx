@@ -1,14 +1,20 @@
 'use client';
 
+import type React from 'react';
 import { useRouter } from 'next/navigation';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { createNote } from '@/lib/api';
-import type { CreateNotePayload } from '@/lib/api';
+import type { CreateNotePayload, NoteTag } from '@/types/note';
 
 import { useNoteDraftStore, initialDraft } from '@/lib/store/noteStore';
 
 import css from './NoteForm.module.css';
+
+const ALLOWED_TAGS: NoteTag[] = ['Todo', 'Work', 'Personal', 'Meeting', 'Shopping'];
+
+const normalizeTag = (value: string): NoteTag =>
+  ALLOWED_TAGS.includes(value as NoteTag) ? (value as NoteTag) : 'Todo';
 
 const NoteForm = () => {
   const router = useRouter();
@@ -20,37 +26,38 @@ const NoteForm = () => {
     mutationFn: (data: CreateNotePayload) => createNote(data),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['notes'] });
+
+      
       clearDraft();
-      router.back();
+
+      
     },
   });
 
-  
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setDraft({ ...draft, title: e.target.value });
+    setDraft({ title: e.target.value });
   };
 
   const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setDraft({ ...draft, content: e.target.value });
+    setDraft({ content: e.target.value });
   };
 
   const handleTagChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-   
-    setDraft({ ...draft, tag: e.target.value as CreateNotePayload['tag'] });
+    setDraft({ tag: normalizeTag(e.target.value) });
   };
 
   const handleSubmit = (formData: FormData) => {
     const title = String(formData.get('title') ?? '').trim();
     const content = String(formData.get('content') ?? '').trim();
-    const tag = String(formData.get('tag') ?? initialDraft.tag) as CreateNotePayload['tag'];
+    const tag = normalizeTag(String(formData.get('tag') ?? initialDraft.tag));
 
     const values: CreateNotePayload = { title, content, tag };
-
     mutation.mutate(values);
   };
 
   const handleCancel = () => {
-    router.back(); 
+     
+    router.back();
   };
 
   return (

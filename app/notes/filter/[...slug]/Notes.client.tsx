@@ -24,7 +24,7 @@ export default function NotesClient({ initialParams }: NotesClientProps) {
   const [search, setSearch] = useState(initialParams.search ?? '');
   const [page, setPage] = useState(initialParams.page ?? 1);
 
-  // tag приходит из initialParams (SSR)
+  
   const tag = initialParams.tag;
 
   const debouncedSearch = useDebouncedCallback((value: string) => {
@@ -65,8 +65,6 @@ export default function NotesClient({ initialParams }: NotesClientProps) {
         <div className={css.headerRow}>
           <SearchBox value={search} onChange={handleSearchChange} />
 
-
-        
           <Link href="/notes/action/create" className={css.button}>
             Create note +
           </Link>
@@ -83,13 +81,11 @@ export default function NotesClient({ initialParams }: NotesClientProps) {
         {!isPending && !isError && <NoteList notes={notes} />}
 
         <Pagination
-  page={page}
-  totalPages={totalPages}
-  onPageChange={handlePageChange}
-/>
+          page={page}
+          totalPages={totalPages}
+          onPageChange={handlePageChange}
+        />
 
-
-      
         {isFetching && !isPending && <p className={css.status}>Updating…</p>}
       </div>
     </main>
